@@ -1,0 +1,48 @@
+#!/bin/bash
+#SBATCH -J hakbaba_s04
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=adam.rork@uconn.edu
+#SBATCH -o %x.o%j
+#SBATCH -e %x.e%j
+#SBATCH -p gpu
+#SBATCH -q general
+#SBATCH -w mantis-034
+#SBATCH -N 1
+#SBATCH -n 1
+#SBATCH -c 90
+#SBATCH --mem=160G
+#SBATCH -t 40:00:00
+
+## description & notes ##
+#
+# Re-basecall Hasan Akbaba's dRNA data w/ Dorado v0.9.6 using model rna004_130bps_sup@v5.1.0 and a quality threshold of 10 w/ polyA tail estimation
+# These data was originally basecalled with rna004_130bps_sup@v3.0.1, which in small-scale tests performs significantly worse than v5.1.0
+# This is the fourth script for this project, as Noah unpacked and ran qc on these data already
+#
+
+## settings & env variables ##
+#
+module load Dorado/0.9.6
+
+WORKING_DIR='/core/cbc/core_projects/2025/hakbaba2025/results/03_rebasecalling'
+CONTROL_DATA='/seqdata/CGI/ONT_Data/HasanAkbaba/2025Jan15_HasanAkbaba_SQKRNA004/2025Jan15_Hasan_controlmRNA_SQKRNA004/20250115_1324_2G_PAY96480_44f9331f/pod5'
+EXTRACTED_DATA='/seqdata/CGI/ONT_Data/HasanAkbaba/2025Jan15_HasanAkbaba_SQKRNA004/2025Jan15_Hasan_extractedmRNA_SQKRNA004/20250115_1324_2H_PAY55366_ba061621/pod5'
+#
+
+## begin analysis ##
+
+# Make sure we can see all three L40S GPUs #
+nvidia-smi
+
+# Download proper model #
+cd "$WORKING_DIR"/models/
+dorado download --model rna004_130bps_sup@v5.1.0
+
+# Rebasecall control data with the model "rna004_130bps_sup@v5.1.0" #
+cd "$WORKING_DIR"/control/
+dorado basecaller "$WORKING_DIR"/models/rna004_130bps_sup@v5.1.0 "$CONTROL_DATA"/ --min-qscore 10 --estimate-poly-a --device cuda:all > control.bam
+
+# Rebasecall extracted data with the model "rna004_130bps_sup@v5.1.0" #
+cd "$WORKING_DIR"/extracted/
+dorado basecaller "$WORKING_DIR"/models/rna004_130bps_sup@v5.1.0 "$EXTRACTED_DATA"/ --min-qscore 10 --estimate-poly-a --device cuda:all > extracted.bam
+

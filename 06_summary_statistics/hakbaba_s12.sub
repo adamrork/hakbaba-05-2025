@@ -1,0 +1,57 @@
+#!/bin/bash
+#SBATCH -J hakbaba_s12
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=adam.rork@uconn.edu
+#SBATCH -o %x.o%j
+#SBATCH -e %x.e%j
+#SBATCH -p general
+#SBATCH -q general
+#SBATCH -N 1
+#SBATCH -n 1
+#SBATCH -c 12
+#SBATCH --mem=24G
+#SBATCH -t 03:00:00
+
+## description & notes ##
+#
+# Write the read length, quality, poly(A) tail length data to files.
+#
+
+## settings & env variables ##
+#
+module load samtools/1.19
+
+CONTROL_DIR='/core/cbc/core_projects/2025/hakbaba2025/results/03_rebasecalling/control'
+EXTRACTED_DIR='/core/cbc/core_projects/2025/hakbaba2025/results/03_rebasecalling/extracted'
+OUTDIR='/core/cbc/core_projects/2025/hakbaba2025/results/06_summary_statistics'
+#
+
+bam_stats() {
+  mawk '
+    BEGIN{
+      FS = OFS = "\t"
+      print( "ID", "LENGTH", "QUALITY", "CHANNEL", "POLYA" )
+    }
+
+    {
+      gsub("qs:f:", "", $12)
+      gsub("ch:i:", "", $17)
+      gsub("pt:i:", "", $NF)
+      print( $1, length($10), $12, $17, $NF )
+    }
+  '
+}
+#
+
+## begin analysis ##
+
+cd "$OUTDIR"/lengths/
+
+# Extract summary statistics #
+samtools view -@7 "$CONTROL_DIR"/control.bam | bam_stats > control_bam_data.tsv
+samtools view -@7 "$EXTRACTED_DIR"/extracted.bam | bam_stats > extracted_bam_data.tsv
+
+# Create a subset from only the mapped reads #
+grep -vf ../contaminants/control_unmapped_read_headers.tsv control_bam_data.tsv > control_bam_data_mapped.tsv
+grep -vf ../contaminants/extracted_unmapped_read_headers.tsv extracted_bam_data.tsv > extracted_bam_data_mapped.tsv
+

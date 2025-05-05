@@ -1,0 +1,63 @@
+#!/bin/bash
+#SBATCH -J hakbaba_s07
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=adam.rork@uconn.edu
+#SBATCH -o %x.o%j
+#SBATCH -e %x.e%j
+#SBATCH -p general
+#SBATCH -q general
+#SBATCH -N 1
+#SBATCH -n 1
+#SBATCH -c 42
+#SBATCH --mem=42G
+#SBATCH -t 03:00:00
+
+## description & notes ##
+#
+# Map dRNA data (in cDNA form) to the provided reference (also in cDNA form).
+# Sort and heavily compress the BAM files for easier access later.
+# Also, generate mapping quality and other statistics.
+#
+
+## settings & env variables ##
+#
+export PATH=$PATH:/home/FCAM/arork/software/alfred_v0.3.2
+
+module load minimap2/2.28
+module load samtools/1.19.2
+
+CONTROL_SEQS='/core/cbc/core_projects/2025/hakbaba2025/results/03_rebasecalling/control'
+EXTRACTED_SEQS='/core/cbc/core_projects/2025/hakbaba2025/results/03_rebasecalling/extracted'
+OUTDIR='/core/cbc/core_projects/2025/hakbaba2025/results/04_read_mapping'
+REFERENCE_DIR='/core/cbc/core_projects/2025/hakbaba2025/meta'
+#
+
+## begin analysis ##
+
+# Convert mRNA reference to a cDNA reference for clarity when mapping, variant calling, etc. #
+cd "$REFERENCE_DIR"/
+
+awk '/^>/ { print( $0 ) } !/^>/ { gsub("U", "T", $0) ; print( $0 ) }' template.fasta > template_UtoT.fasta
+
+# Map "control" ONT reads to reference and output as sorted BAM #
+cd "$OUTDIR"/control/
+
+minimap2 -ax map-ont -t32 -2 "$REFERENCE_DIR"/template_UtoT.fasta "$CONTROL_SEQS"/control.fq.gz | samtools sort -l9 -m2G -@7 -o control_mapped.bam -
+samtools flagstat -@7 control_mapped.bam > ../statistics/control/control_mapped_flagstat.txt
+samtools stat -@7 control_mapped.bam > ../statistics/control/control_mapped_stat.txt
+samtools depth -@7 control_mapped.bam > ../statistics/control/control_mapped_depth.tsv
+samtools coverage control_mapped.bam > ../statistics/control/control_mapped_coverage.tsv
+samtools index control_mapped.bam
+alfred_v0.3.2_linux_x86_64bit qc -r "$REFERENCE_DIR"/template_UtoT.fasta -o ../statistics/control/control_mapped_qc.tsv.gz -j ../statistics/control/control_mapped_qc.json.gz control_mapped.bam
+
+# Map "extracted" ONT reads to reference and output as sorted BAM #
+cd "$OUTDIR"/extracted/
+
+minimap2 -ax map-ont -t32 -2 "$REFERENCE_DIR"/template_UtoT.fasta "$EXTRACTED_SEQS"/extracted.fq.gz | samtools sort -l9 -m2G -@7 -o extracted_mapped.bam -
+samtools flagstat -@7 extracted_mapped.bam > ../statistics/extracted/extracted_mapped_flagstat.txt
+samtools stat -@7 extracted_mapped.bam > ../statistics/extracted/extracted_mapped_stat.txt
+samtools depth -@7 extracted_mapped.bam > ../statistics/extracted/extracted_mapped_depth.tsv
+samtools coverage extracted_mapped.bam > ../statistics/extracted/extracted_mapped_coverage.tsv
+samtools index extracted_mapped.bam
+alfred_v0.3.2_linux_x86_64bit qc -r "$REFERENCE_DIR"/template_UtoT.fasta -o ../statistics/extracted/extracted_mapped_qc.tsv.gz -j ../statistics/extracted/extracted_mapped_qc.json.gz extracted_mapped.bam
+

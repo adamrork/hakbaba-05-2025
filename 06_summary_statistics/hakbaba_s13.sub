@@ -1,0 +1,45 @@
+#!/bin/bash
+#SBATCH -J hakbaba_s13
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=adam.rork@uconn.edu
+#SBATCH -o %x.o%j
+#SBATCH -e %x.e%j
+#SBATCH -p general
+#SBATCH -q general
+#SBATCH -N 1
+#SBATCH -n 1
+#SBATCH -c 4
+#SBATCH --mem=4G
+#SBATCH -t 00:30:00
+
+## description & notes ##
+#
+# Align consensus sequences and template with MAFFT.
+#
+
+## settings & env variables ##
+#
+module load mafft/7.525
+
+CONSENSUS_DIR='/core/cbc/core_projects/2025/hakbaba2025/results/05_variant_calling'
+TEMPLATE_DIR='/core/cbc/core_projects/2025/hakbaba2025/meta'
+OUTDIR='/core/cbc/core_projects/2025/hakbaba2025/results/06_summary_statistics/sequences'
+#
+
+## begin analysis ##
+
+cd "$OUTDIR"/
+
+# Gather sequences #
+
+sed 's/>template/>original/' "$TEMPLATE_DIR"/template_UtoT.fasta > original.fna
+sed 's/>template/>ctrl_dflt/' "$CONSENSUS_DIR"/default/control/control_mapped_consensus_default.fna > ctrl_dflt.fna
+sed 's/>template/>ctrl_cstm/' "$CONSENSUS_DIR"/custom/control/control_mapped_consensus_custom.fna > ctrl_cstm.fna
+sed 's/>template/>extr_dflt/' "$CONSENSUS_DIR"/default/extracted/extracted_mapped_consensus_default.fna > extr_dflt.fna
+sed 's/>template/>extr_cstm/' "$CONSENSUS_DIR"/custom/extracted/extracted_mapped_consensus_custom.fna > extr_cstm.fna
+
+cat *.fna > all_sequences.fna
+
+# Align sequences with MAFFT #
+mafft --maxiterate 1000 --globalpair --thread 4 all_sequences.fna > all_sequences_aligned.fna
+

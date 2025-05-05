@@ -1,0 +1,40 @@
+#!/bin/bash
+#SBATCH -J hakbaba_s14
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=adam.rork@uconn.edu
+#SBATCH -o %x.o%j
+#SBATCH -e %x.e%j
+#SBATCH -p general
+#SBATCH -q general
+#SBATCH -N 1
+#SBATCH -n 1
+#SBATCH -c 8
+#SBATCH --mem=4G
+#SBATCH -t 00:30:00
+
+## description & notes ##
+#
+# Tar and gzip mana intermediate results for quicker data transfer.
+#
+
+## settings & env variables ##
+#
+module load pigz/2.2.3
+#
+
+## begin analysis ##
+
+cd /core/cbc/core_projects/2025/hakbaba2025/results/06_summary_statistics/mana/control/intermediate_results/
+
+pigz -p 8 -9 control_mapped.bam_unmapped.fq \
+  && cd ../ \
+  && tar -cf intermediate_results.tar intermediate_results/ \
+  && pigz -p 8 -9 intermediate_results.tar
+
+cd /core/cbc/core_projects/2025/hakbaba2025/results/06_summary_statistics/mana/extracted/intermediate_results/
+
+pigz -p 8 -9 extracted_mapped.bam_unmapped.fq \
+  && cd ../ \
+  && tar -cf intermediate_results.tar intermediate_results/ \
+  && pigz -p 8 -9 intermediate_results.tar
+

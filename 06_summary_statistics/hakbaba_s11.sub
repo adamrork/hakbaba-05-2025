@@ -1,0 +1,83 @@
+#!/bin/bash
+#SBATCH -J hakbaba_s11
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=adam.rork@uconn.edu
+#SBATCH -o %x.o%j
+#SBATCH -e %x.e%j
+#SBATCH -p general
+#SBATCH -q general
+#SBATCH -N 1
+#SBATCH -n 1
+#SBATCH -c 16
+#SBATCH --mem=16G
+#SBATCH -t 03:00:00
+
+## description & notes ##
+#
+# Identify possible sources of contamination from the unmapped dRNA reads.
+# Only use those >=100bp and of reasonably high complexity.
+#
+
+## settings & env variables ##
+#
+module load bbmap/39.08
+module load blast/2.15.0
+module load samtools/1.19
+
+CONTROL_DIR='/core/cbc/core_projects/2025/hakbaba2025/results/04_read_mapping/control'
+EXTRACTED_DIR='/core/cbc/core_projects/2025/hakbaba2025/results/04_read_mapping/extracted'
+OUTDIR='/core/cbc/core_projects/2025/hakbaba2025/results/06_summary_statistics'
+BLASTDB='/isg/shared/databases/blast/v5/nt'
+
+filter_bam() {
+  mawk '
+    BEGIN {
+      FS="\t"
+      OFS="\n"
+    }
+
+    {
+      if ( length($10) >= 100 ) {
+        print(">"$1, $10 )
+      }
+    }
+  '
+}
+#
+
+## begin analysis ##
+
+cd "$OUTDIR"/contaminants/
+
+# Gather all unmapped read IDs #
+samtools view -@7 -f4 "$CONTROL_DIR"/control_mapped.bam | cut -f1 | sort > control_unmapped_read_headers.tsv
+samtools view -@7 -f4 "$EXTRACTED_DIR"/extracted_mapped.bam | cut -f1 | sort > extracted_unmapped_read_headers.tsv
+
+# Extract said reads and convert them to FASTA #
+samtools view -@7 "$CONTROL_DIR"/control_mapped.bam | grep -f control_unmapped_read_headers.tsv | filter_bam > unmapped_control_reads.fna
+samtools view -@7 "$EXTRACTED_DIR"/extracted_mapped.bam | grep -f extracted_unmapped_read_headers.tsv | filter_bam > unmapped_extracted_reads.fna
+
+# Remove low-complexity reads #
+bbduk.sh in=unmapped_control_reads.fna out=unmapped_control_reads_passed.fna outm=unmapped_control_reads_failed.fna entropy=0.5 threads=16
+bbduk.sh in=unmapped_extracted_reads.fna out=unmapped_extracted_reads_passed.fna outm=unmapped_extracted_reads_failed.fna entropy=0.5 threads=16
+
+# Blast "control" sample reads against the local nt database to identify contaminants #
+blastn -query unmapped_control_reads_passed.fna -db "$BLASTDB" -evalue 1E-10 -outfmt 6 -max_target_seqs 1 -max_hsps 1 -num_threads 16 > unmapped_control_contaminants.tsv
+
+cat unmapped_control_contaminants.tsv | \
+	cut -f2 | \
+	sort | \
+	uniq -c | \
+	awk 'BEGIN{ OFS="\t" } { x = $1 ; $1 = $2 ; $1 = x ; print( $0 ) }' | \
+	sort -nrk1 > unmapped_control_contaminants_summary.tsv
+
+# Blast "extracted" sample reads against the local nt database to identify contaminants #
+blastn -query unmapped_extracted_reads_passed.fna -db "$BLASTDB" -evalue 1E-10 -outfmt 6 -max_target_seqs 1 -max_hsps 1 -num_threads 16 > unmapped_extracted_contaminants.tsv
+
+cat unmapped_extracted_contaminants.tsv | \
+	cut -f2 | \
+	sort | \
+	uniq -c | \
+	awk 'BEGIN{ OFS="\t" } { x = $1 ; $1 = $2 ; $1 = x ; print( $0 ) }' | \
+	sort -nrk1 > unmapped_extracted_contaminants_summary.tsv
+

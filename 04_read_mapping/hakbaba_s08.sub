@@ -1,0 +1,58 @@
+#!/bin/bash
+#SBATCH -J hakbaba_s08
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=adam.rork@uconn.edu
+#SBATCH -o %x.o%j
+#SBATCH -e %x.e%j
+#SBATCH -p general
+#SBATCH -q general
+#SBATCH -N 1
+#SBATCH -n 1
+#SBATCH -c 8
+#SBATCH --mem=32G
+#SBATCH -t 04:00:00
+
+## description & notes ##
+#
+# Create summary figures for the dRNA-to-template mapping data
+# This only needs to be ran once to check quality, but we may
+# want to run it multiple times to decide on plot colors.
+#
+
+## settings & env variables ##
+#
+module load NanoPlot/1.44.0
+
+CONTROL_DIR='/core/cbc/core_projects/2025/hakbaba2025/results/04_read_mapping/control'
+EXTRACTED_DIR='/core/cbc/core_projects/2025/hakbaba2025/results/04_read_mapping/extracted'
+OUTDIR='/core/cbc/core_projects/2025/hakbaba2025/results/04_read_mapping/quality_reports'
+#
+
+## begin analysis ##
+
+# Generate mapping quality summaries for the "control" dRNA data #
+cd "$OUTDIR"/control/
+
+NanoPlot \
+	--bam "$CONTROL_DIR"/control_mapped.bam \
+	--outdir "$OUTDIR"/control \
+	--N50 \
+	--plots dot kde \
+	--prefix control_dRNA_ \
+	--color sandybrown \
+	--title "Control dRNA to Template" \
+	--dpi 500
+
+# Generate mapping quality summaries for the "extracted" dRNA data #
+cd "$OUTDIR"/extracted/
+
+NanoPlot \
+	--bam "$EXTRACTED_DIR"/extracted_mapped.bam \
+	--outdir "$OUTDIR"/extracted \
+	--N50 \
+	--plots dot kde \
+	--prefix extracted_dRNA_ \
+	--color mediumaquamarine \
+	--title "Extracted dRNA to Template" \
+	--dpi 500
+

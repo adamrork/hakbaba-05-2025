@@ -1,0 +1,52 @@
+#!/bin/bash
+#SBATCH -J hakbaba_s09b
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=adam.rork@uconn.edu
+#SBATCH -o %x.o%j
+#SBATCH -e %x.e%j
+#SBATCH -p general
+#SBATCH -q general
+#SBATCH -N 1
+#SBATCH -n 1
+#SBATCH -c 12
+#SBATCH --mem=24G
+#SBATCH -t 10:00:00
+
+## description & notes ##
+#
+# Call variants and generate consensus sequences from the dRNA-to-template mapping data.
+# These commands use custom settings which may offer ever-so-slightly improved variant calling.
+#
+
+## settings & env variables ##
+#
+module load bcftools/1.19
+
+CONTROL_DATA='/core/cbc/core_projects/2025/hakbaba2025/results/04_read_mapping/control'
+EXTRACTED_DATA='/core/cbc/core_projects/2025/hakbaba2025/results/04_read_mapping/extracted'
+OUTDIR='/core/cbc/core_projects/2025/hakbaba2025/results/05_variant_calling/custom'
+REFERENCE_DIR='/core/cbc/core_projects/2025/hakbaba2025/meta'
+#
+
+## begin analysis ##
+
+# Call variants and generate a "control" dRNA consensus mRNA sequence #
+cd "$OUTDIR"/control/
+
+bcftools mpileup --targets template:1-1653 -d 300000000 --no-BAQ --min-BQ 7 --max-BQ 30 --indel-bias 0.9 -Ou -f "$REFERENCE_DIR"/template_UtoT.fasta "$CONTROL_DATA"/control_mapped.bam | \
+	bcftools call --threads 7 -c -M --ploidy 1 -Oz -o control_mapped_custom.vcf.gz
+
+bcftools index --threads 7 control_mapped_custom.vcf.gz
+
+bcftools consensus -a - -f "$REFERENCE_DIR"/template_UtoT.fasta control_mapped_custom.vcf.gz > control_mapped_consensus_custom.fna
+
+# Call variants and generate an "extracted" dRNA consensus mRNA sequence #
+cd "$OUTDIR"/extracted/
+
+bcftools mpileup --targets template:1-1653 -d 300000000 --no-BAQ --min-BQ 7 --max-BQ 30 --indel-bias 0.9 -Ou -f "$REFERENCE_DIR"/template_UtoT.fasta "$EXTRACTED_DATA"/extracted_mapped.bam | \
+	bcftools call --threads 7 -c -M --ploidy 1 -Oz -o extracted_mapped_custom.vcf.gz
+
+bcftools index --threads 7 extracted_mapped_custom.vcf.gz
+
+bcftools consensus -a - -f "$REFERENCE_DIR"/template_UtoT.fasta extracted_mapped_custom.vcf.gz > extracted_mapped_consensus_custom.fna
+

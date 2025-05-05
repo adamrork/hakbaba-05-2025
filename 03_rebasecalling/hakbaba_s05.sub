@@ -1,0 +1,45 @@
+#!/bin/bash
+#SBATCH -J hakbaba_s05
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=adam.rork@uconn.edu
+#SBATCH -o %x.o%j
+#SBATCH -e %x.e%j
+#SBATCH -p general
+#SBATCH -q general
+#SBATCH -N 1
+#SBATCH -n 1
+#SBATCH -c 20
+#SBATCH --mem=10G
+#SBATCH -t 01:00:00
+
+## description & notes ##
+#
+# Convert the dRNA data from BAM to FASTQ and generate data summaries.
+#
+
+## settings & env variables ##
+#
+module load Dorado/0.9.6
+module load pigz/2.2.3
+module load samtools/1.19.2
+
+CONTROL_SEQS='/core/cbc/core_projects/2025/hakbaba2025/results/03_rebasecalling/control'
+EXTRACTED_SEQS='/core/cbc/core_projects/2025/hakbaba2025/results/03_rebasecalling/extracted'
+#
+
+## begin analysis ##
+
+# Generate a data summary #
+cd "$CONTROL_SEQS"
+dorado summary control.bam > ../quality_reports/control_summary.tsv
+
+# Convert BAM to FASTQ #
+samtools fastq -@7 control.bam | pigz -p 12 -9 > control.fq.gz
+
+# Generate a data summary #
+cd "$EXTRACTED_SEQS"
+dorado summary extracted.bam > ../quality_reports/extracted_summary.tsv
+
+# Convert BAM to FASTQ #
+samtools fastq -@7 extracted.bam | pigz -p 12 -9 > extracted.fq.gz
+
