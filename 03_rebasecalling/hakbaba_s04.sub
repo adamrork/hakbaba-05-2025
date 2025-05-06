@@ -16,7 +16,7 @@
 ## description & notes ##
 #
 # Re-basecall Hasan Akbaba's dRNA data w/ Dorado v0.9.6 using model rna004_130bps_sup@v5.1.0 and a quality threshold of 10 w/ polyA tail estimation
-# These data was originally basecalled with rna004_130bps_sup@v3.0.1, which in small-scale tests performs significantly worse than v5.1.0
+# These data were originally basecalled with rna004_130bps_sup@v3.0.1, which in small-scale tests performs significantly worse than v5.1.0
 # This is the fourth script for this project, as Noah unpacked and ran qc on these data already
 #
 
